@@ -45,7 +45,7 @@ if (langOpt) {
   args.push("-e", `PGOPTIONS=-c lc_messages=${langOpt}`);
 }
 
-// psql は .psqlrc を読まない(-X) & 途中エラーで止める(ON_ERROR_STOP)
+// psql は .psqlrc を読まない(-X) & エラー後も処理を継続する(ON_ERROR_STOP=0)
 args.push(
   container,
   "psql",
@@ -55,7 +55,7 @@ args.push(
   "-d",
   database,
   "-v",
-  "ON_ERROR_STOP=1",
+  "ON_ERROR_STOP=0",
   "-f",
   "-", // stdin から読む
 );
@@ -66,14 +66,21 @@ const res = spawnSync("docker", args, {
   encoding: "utf-8",
 });
 
-// 成功時は psql の標準出力をそのまま返して終了
+const stderrHeader = `\n----- stderr from psql (${sqlFile.replace(/\\/g, "/")}) -----\n`;
+
+// 正常終了時も標準出力と標準エラー出力を表示して終了
 if (res.status === 0) {
   if (res.stdout) process.stdout.write(res.stdout);
+  if (res.stderr && res.stderr.trim().length > 0) {
+    process.stderr.write(stderrHeader);
+    process.stderr.write(res.stderr);
+  }
   process.exit(0);
 }
 
 // 失敗時: psql のエラーまたは docker のエラーを出す
 if (res.stderr && res.stderr.trim().length > 0) {
+  process.stderr.write(stderrHeader);
   process.stderr.write(res.stderr);
 } else if (res.error) {
   process.stderr.write(`Failed to run docker/psql: ${res.error.message}\n`);
