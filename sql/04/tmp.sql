@@ -4,4 +4,6 @@ SET
 SELECT
     *
 FROM
-    users;
+    characters
+WHERE
+    job NOT IN ('Priest', 'Wizard');
